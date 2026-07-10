@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { GitBranch, Link, Mail, Send, CheckCircle, AlertCircle, Loader2, Sparkles } from "lucide-react";
+import { GitBranch, Link, Mail, Send, CheckCircle, AlertCircle, Loader2, Sparkles, ExternalLink } from "lucide-react";
 import { MagneticIcon } from "@/components/ui/MagneticIcon";
 import { GlowButton } from "@/components/ui/GlowButton";
 import { resume } from "@/data/resume";
@@ -12,27 +12,46 @@ type FormState = "idle" | "loading" | "success" | "error";
 export function Contact() {
   const { contact, name, tagline } = resume;
   const [formState, setFormState] = useState<FormState>("idle");
+  const [errorMessage, setErrorMessage] = useState<string>("");
   const [formData, setFormData] = useState({ name: "", email: "", message: "" });
   const shouldReduce = useReducedMotion();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim())) {
+      setFormState("error");
+      setErrorMessage("Invalid email format: Please verify your email contains the '@' symbol and domain (e.g. yourname@gmail.com).");
+      return;
+    }
     setFormState("loading");
+    setErrorMessage("");
     try {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
         setFormState("success");
         setFormData({ name: "", email: "", message: "" });
       } else {
         setFormState("error");
+        setErrorMessage(data.error || "Server email transmission error. API key may not be configured.");
       }
-    } catch {
+    } catch (err: any) {
       setFormState("error");
+      setErrorMessage(err?.message || "Network error while transmitting.");
     }
+  };
+
+  const handleMailtoFallback = () => {
+    const subject = encodeURIComponent(`Portfolio Contact from ${formData.name || "Visitor"}`);
+    const body = encodeURIComponent(
+      `${formData.message || ""}\n\n---\nSender Name: ${formData.name || "N/A"}\nSender Email: ${formData.email || "N/A"}`
+    );
+    window.location.href = `mailto:${contact.email}?subject=${subject}&body=${body}`;
   };
 
   return (
@@ -143,35 +162,59 @@ export function Contact() {
               <motion.div
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 text-sm text-green-400 font-mono bg-green-400/10 border border-green-400/30 p-3.5 rounded-xl"
+                className="flex items-center gap-2 text-sm text-green-400 font-mono bg-green-400/10 border border-green-400/30 p-4 rounded-xl"
               >
-                <CheckCircle size={18} className="shrink-0" />
-                <span>Message sent! I&apos;ll get back to you as soon as possible.</span>
+                <CheckCircle size={18} className="shrink-0 text-green-400" />
+                <span>Message transmitted successfully! I&apos;ll get back to you as soon as possible.</span>
               </motion.div>
             )}
+
             {formState === "error" && (
               <motion.div
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 text-sm text-red-400 font-mono bg-red-400/10 border border-red-400/30 p-3.5 rounded-xl"
+                className="space-y-3 p-4 rounded-xl bg-red-400/10 border border-red-400/30 text-left"
               >
-                <AlertCircle size={18} className="shrink-0" />
-                <span>Something went wrong sending via API. Please email me directly at {contact.email}.</span>
+                <div className="flex items-start gap-2.5 text-sm text-red-300 font-mono">
+                  <AlertCircle size={18} className="shrink-0 mt-0.5 text-red-400" />
+                  <div>
+                    <span className="font-bold block text-red-200">API Transmission Notice:</span>
+                    <span className="text-xs text-red-300/90 leading-relaxed">{errorMessage}</span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-red-400/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <span className="text-xs font-mono text-muted">Don&apos;t worry! Your typed message is preserved:</span>
+                  <button
+                    type="button"
+                    onClick={handleMailtoFallback}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-electric/20 hover:bg-electric/30 border border-electric/40 text-electric text-xs font-mono font-bold transition-colors shadow-[0_0_12px_rgba(0,240,255,0.2)]"
+                  >
+                    <Mail size={14} />
+                    Send via Email App ({contact.email})
+                    <ExternalLink size={12} />
+                  </button>
+                </div>
               </motion.div>
             )}
 
-            <GlowButton
-              type="submit"
-              variant="primary"
-              disabled={formState === "loading" || formState === "success"}
-              className="w-full sm:w-auto justify-center disabled:opacity-60 disabled:cursor-not-allowed text-base py-3.5 px-8"
-            >
-              {formState === "loading" ? (
-                <><Loader2 size={18} className="animate-spin" /> Transmitting...</>
-              ) : (
-                <><Send size={18} /> Send Message</>
-              )}
-            </GlowButton>
+            <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
+              <GlowButton
+                type="submit"
+                variant="primary"
+                disabled={formState === "loading" || formState === "success"}
+                className="w-full sm:w-auto justify-center disabled:opacity-60 disabled:cursor-not-allowed text-base py-3.5 px-8"
+              >
+                {formState === "loading" ? (
+                  <><Loader2 size={18} className="animate-spin" /> Transmitting...</>
+                ) : (
+                  <><Send size={18} /> Send Message</>
+                )}
+              </GlowButton>
+
+              <span className="text-xs font-mono text-muted/60">
+                Or email directly at <a href={`mailto:${contact.email}`} className="text-electric hover:underline">{contact.email}</a>
+              </span>
+            </div>
           </form>
         </motion.div>
 

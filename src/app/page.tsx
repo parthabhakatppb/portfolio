@@ -55,8 +55,10 @@ function Navbar({ visible }: { visible: boolean }) {
       role="banner"
     >
       <div
-        className={`mx-auto max-w-7xl px-6 md:px-12 transition-all duration-500 ${
-          scrolled ? "glass rounded-2xl" : ""
+        className={`mx-auto max-w-7xl px-6 md:px-12 transition-all duration-500 rounded-2xl ${
+          scrolled
+            ? "glass shadow-[0_8px_32px_rgba(0,0,0,0.6)] border border-white/15"
+            : "bg-void/60 backdrop-blur-md border border-white/8 shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
         }`}
       >
         <nav
